@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📸 Álbum de Fotos</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 3em;
+            font-weight: 300;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .config-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(15px);
+            border-radius: 20px;
+            padding: 30px;
+            margin: 0 auto 40px;
+            max-width: 600px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .config-panel.hidden {
+            display: none;
+        }
+
+        .config-title {
+            text-align: center;
+            color: #333;
+            font-size: 1.5em;
+            margin-bottom: 20px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #555;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            display: block;
+            margin: 20px auto 0;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn.small {
+            padding: 10px 20px;
+            font-size: 14px;
+            display: inline-block;
+            margin: 10px;
+        }
+
+        .controls {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .photo-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(15px);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            transition: all 0.4s ease;
+            opacity: 0;
+            transform: translateY(30px);
+        }
+
+        .photo-card.loaded {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .photo-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+        }
+
+        .photo-card img {
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+            transition: transform 0.4s ease;
+            cursor: pointer;
+        }
+
+        .photo-card:hover img {
+            transform: scale(1.05);
+        }
+
+        .photo-info {
+            padding: 20px;
+        }
+
+        .photo-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .photo-date {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .photo-size {
+            color: #888;
+            font-size: 12px;
+        }
+
+        .photo-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .action-btn {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            color: #495057;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+        .action-btn:hover {
+            background: #e9ecef;
+            border-color: #ced4da;
+        }
+
+        .action-btn.download {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            border: none;
+        }
+
+        .action-btn.download:hover {
+            background: linear-gradient(45deg, #218838, #1ea885);
+        }
+
+        .action-btn.download.downloading {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .action-btn.delete {
+            background: linear-gradient(45deg, #dc3545, #c82333);
+            color: white;
+            border: none;
+        }
+
+        .action-btn.delete:hover {
+            background: linear-gradient(45deg, #c82333, #a71e2a);
+        }
+
+        .photo-checkbox {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 20px;
+            height: 20px;
+            z-index: 10;
+            cursor: pointer;
+            transform: scale(1.2);
+        }
+
+        .photo-card {
+            position: relative;
+        }
+
+        .selection-controls {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(15px);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 0 auto 20px;
+            max-width: 800px;
+            text-align: center;
+            display: none;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .selection-controls.visible {
+            display: block;
+        }
+
+        .selection-info {
+            margin-bottom: 15px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .selection-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn.danger {
+            background: linear-gradient(45deg, #dc3545, #c82333);
+        }
+
+        .btn.danger:hover {
+            background: linear-gradient(45deg, #c82333, #a71e2a);
+        }
+
+        .btn.secondary {
+            background: linear-gradient(45deg, #6c757d, #545b62);
+        }
+
+        .btn.secondary:hover {
+            background: linear-gradient(45deg, #545b62, #3d4449);
+        }
+
+        /* Modal de confirmación */
+        .confirm-modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        .confirm-content {
+            background: white;
+            margin: 10% auto;
+            padding: 30px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .confirm-title {
+            color: #dc3545;
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        .confirm-message {
+            color: #333;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+
+        .confirm-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .photo-card.selected {
+            border: 3px solid #667eea;
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .status {
+            text-align: center;
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px auto;
+            max-width: 600px;
+            font-weight: 600;
+            display: none;
+        }
+
+        .status.success {
+            background: rgba(212, 237, 218, 0.9);
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: rgba(248, 215, 218, 0.9);
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.loading {
+            background: rgba(209, 236, 241, 0.9);
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .stats {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(15px);
+            color: white;
+            text-align: center;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            margin-bottom: 30px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        /* Modal para ver imagen completa */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+        }
+
+        .modal-content {
+            display: block;
+            margin: auto;
+            max-width: 90%;
+            max-height: 90%;
+            margin-top: 2%;
+            border-radius: 10px;
+        }
+
+        .close {
+            position: absolute;
+            top: 15px;
+            right: 35px;
+            color: #f1f1f1;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .close:hover {
+            color: #bbb;
+        }
+
+        @media (max-width: 768px) {
+            .gallery {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📸 Mi Álbum de Fotos</h1>
+        <p>Galería automática desde Amazon S3</p>
+    </div>
+
+    <!-- Panel de configuración -->
+    <div class="config-panel" id="configPanel">
+        <h3 class="config-title">⚙️ Configuración de S3</h3>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="accessKey">Access Key ID:</label>
+                <input type="text" id="accessKey" placeholder="Tu Access Key de AWS">
+            </div>
+            <div class="form-group">
+                <label for="secretKey">Secret Access Key:</label>
+                <input type="password" id="secretKey" placeholder="Tu Secret Key de AWS">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="bucketName">Nombre del Bucket:</label>
+                <input type="text" id="bucketName" placeholder="fotos1casstella" value="fotos1casstella">
+            </div>
+            <div class="form-group">
+                <label for="region">Región:</label>
+                <input type="text" id="region" placeholder="us-east-1" value="us-east-1">
+            </div>
+        </div>
+        <button class="btn" onclick="loadGallery()">🖼️ Cargar Álbum</button>
+    </div>
+
+    <!-- Controles -->
+    <div class="controls" id="controls" style="display: none;">
+        <button class="btn small" onclick="showConfig()">⚙️ Configuración</button>
+        <button class="btn small" onclick="loadGallery()">🔄 Actualizar</button>
+        <button class="btn small" onclick="toggleView()">👁️ Cambiar Vista</button>
+        <button class="btn small" onclick="toggleSelectionMode()">☑️ Seleccionar</button>
+    </div>
+
+    <!-- Controles de selección -->
+    <div class="selection-controls" id="selectionControls">
+        <div class="selection-info" id="selectionInfo">
+            0 fotos seleccionadas
+        </div>
+        <div class="selection-buttons">
+            <button class="btn small secondary" onclick="selectAll()">✅ Seleccionar Todo</button>
+            <button class="btn small secondary" onclick="selectNone()">❌ Deseleccionar Todo</button>
+            <button class="btn small" onclick="downloadSelected()">⬇️ Descargar Seleccionadas</button>
+            <button class="btn small danger" onclick="confirmDeleteSelected()">🗑️ Eliminar Seleccionadas</button>
+            <button class="btn small secondary" onclick="toggleSelectionMode()">↩️ Salir</button>
+        </div>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="stats" id="stats" style="display: none;">
+        <div class="stats-grid">
+            <div class="stat-item">
+                <span class="stat-number" id="totalPhotos">0</span>
+                <span class="stat-label">Fotos</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number" id="totalSize">0 MB</span>
+                <span class="stat-label">Tamaño Total</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number" id="lastUpdate">-</span>
+                <span class="stat-label">Última Foto</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estado -->
+    <div id="status" class="status"></div>
+
+    <!-- Galería -->
+    <div class="gallery" id="gallery"></div>
+
+    <!-- Modal para ver imagen completa -->
+    <div id="imageModal" class="modal">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <img class="modal-content" id="modalImage">
+    </div>
+
+    <!-- Modal de confirmación -->
+    <div id="confirmModal" class="confirm-modal">
+        <div class="confirm-content">
+            <div class="confirm-title">⚠️ Confirmar Eliminación</div>
+            <div class="confirm-message" id="confirmMessage">
+                ¿Estás seguro de que quieres eliminar las fotos seleccionadas? Esta acción no se puede deshacer.
+            </div>
+            <div class="confirm-buttons">
+                <button class="btn danger" onclick="executeDelete()">🗑️ Sí, Eliminar</button>
+                <button class="btn secondary" onclick="closeConfirmModal()">❌ Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AWS SDK -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/aws-sdk/2.1479.0/aws-sdk.min.js"></script>
+
+    <script>
+        class PhotoAlbum {
+            constructor() {
+                this.photos = [];
+                this.s3 = null;
+                this.bucketName = '';
+                this.currentView = 'grid';
+                this.selectionMode = false;
+                this.selectedPhotos = new Set();
+                
+                this.initializeEventListeners();
+                this.loadSavedConfig();
+            }
+
+            initializeEventListeners() {
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') this.closeModal();
+                });
+            }
+
+            loadSavedConfig() {
+                // Cargar configuración sin localStorage
+                // Solo mantener valores por defecto
+                document.getElementById('bucketName').value = 'fotos1casstella';
+                document.getElementById('region').value = 'us-east-1';
+            }
+
+            saveConfig() {
+                // Configuración guardada en memoria por la sesión
+                console.log('Configuración guardada para esta sesión');
+            }
+
+            validateConfig() {
+                const accessKey = document.getElementById('accessKey').value;
+                const secretKey = document.getElementById('secretKey').value;
+                const bucketName = document.getElementById('bucketName').value;
+                const region = document.getElementById('region').value;
+
+                if (!accessKey || !secretKey || !bucketName || !region) {
+                    this.showStatus('Por favor completa toda la configuración de S3', 'error');
+                    return false;
+                }
+
+                return { accessKey, secretKey, bucketName, region };
+            }
+
+            async loadGallery() {
+                const config = this.validateConfig();
+                if (!config) return;
+
+                this.showStatus('<div class="loading-spinner"></div>Cargando fotos desde S3...', 'loading');
+
+                try {
+                    AWS.config.update({
+                        accessKeyId: config.accessKey,
+                        secretAccessKey: config.secretKey,
+                        region: config.region
+                    });
+
+                    this.s3 = new AWS.S3();
+                    this.bucketName = config.bucketName;
+
+                    const params = {
+                        Bucket: this.bucketName,
+                        MaxKeys: 1000
+                    };
+
+                    const data = await this.s3.listObjectsV2(params).promise();
+                    
+                    this.photos = data.Contents
+                        .filter(item => this.isImageFile(item.Key))
+                        .map(item => ({
+                            key: item.Key,
+                            lastModified: item.LastModified,
+                            size: item.Size,
+                            url: this.getImageUrl(item.Key),
+                            displayName: this.getDisplayName(item.Key)
+                        }))
+                        .sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
+
+                    this.renderGallery();
+                    this.updateStats();
+                    this.saveConfig();
+                    this.hideStatus();
+                    this.showControls();
+
+                } catch (error) {
+                    console.error('Error al cargar galería:', error);
+                    this.showStatus(`Error al cargar fotos: ${error.message}`, 'error');
+                }
+            }
+
+            isImageFile(filename) {
+                const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+                return imageExtensions.some(ext => 
+                    filename.toLowerCase().endsWith(ext)
+                );
+            }
+
+            getImageUrl(key) {
+                return `https://${this.bucketName}.s3.${AWS.config.region}.amazonaws.com/${encodeURIComponent(key)}`;
+            }
+
+            getDisplayName(key) {
+                return key.split('/').pop().replace(/\.[^/.]+$/, '');
+            }
+
+            formatFileSize(bytes) {
+                if (bytes === 0) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+
+            formatDate(date) {
+                return new Date(date).toLocaleDateString('es-ES', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+
+            // Función mejorada para descargar imágenes
+            async downloadImage(url, filename, button) {
+                try {
+                    // Cambiar estado del botón
+                    const originalText = button.innerHTML;
+                    button.innerHTML = '⏳ Descargando...';
+                    button.classList.add('downloading');
+                    button.disabled = true;
+
+                    // Método 1: Intentar descarga directa usando fetch
+                    try {
+                        const response = await fetch(url, {
+                            method: 'GET',
+                            headers: {
+                                'Cache-Control': 'no-cache'
+                            }
+                        });
+
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            const downloadUrl = window.URL.createObjectURL(blob);
+                            
+                            const link = document.createElement('a');
+                            link.href = downloadUrl;
+                            link.download = filename + this.getFileExtension(url);
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            window.URL.revokeObjectURL(downloadUrl);
+                            
+                            this.showStatus('✅ Descarga completada exitosamente', 'success');
+                            setTimeout(() => this.hideStatus(), 3000);
+                        } else {
+                            throw new Error('No se pudo acceder al archivo');
+                        }
+                    } catch (fetchError) {
+                        console.log('Fetch falló, intentando método alternativo...', fetchError);
+                        
+                        // Método 2: Usar AWS SDK para generar URL firmada
+                        if (this.s3) {
+                            const key = decodeURIComponent(url.split('/').pop());
+                            const params = {
+                                Bucket: this.bucketName,
+                                Key: key,
+                                Expires: 300 // URL válida por 5 minutos
+                            };
+                            
+                            const signedUrl = this.s3.getSignedUrl('getObject', params);
+                            
+                            // Intentar descarga con URL firmada
+                            const response = await fetch(signedUrl);
+                            const blob = await response.blob();
+                            const downloadUrl = window.URL.createObjectURL(blob);
+                            
+                            const link = document.createElement('a');
+                            link.href = downloadUrl;
+                            link.download = filename + this.getFileExtension(url);
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            window.URL.revokeObjectURL(downloadUrl);
+                            
+                            this.showStatus('✅ Descarga completada con URL firmada', 'success');
+                            setTimeout(() => this.hideStatus(), 3000);
+                        } else {
+                            throw new Error('No se pudo descargar el archivo');
+                        }
+                    }
+
+                } catch (error) {
+                    console.error('Error en descarga:', error);
+                    
+                    // Método 3: Abrir en nueva ventana como fallback
+                    this.showStatus('⚠️ Descarga directa falló, abriendo en nueva ventana...', 'error');
+                    window.open(url, '_blank');
+                    
+                    setTimeout(() => this.hideStatus(), 5000);
+                } finally {
+                    // Restaurar estado del botón
+                    button.innerHTML = originalText;
+                    button.classList.remove('downloading');
+                    button.disabled = false;
+                }
+            }
+
+            getFileExtension(url) {
+                const path = url.split('?')[0]; // Remover query parameters
+                const match = path.match(/\.[^.]*$/);
+                return match ? match[0] : '.jpg';
+            }
+
+            renderGallery() {
+                const gallery = document.getElementById('gallery');
+                gallery.innerHTML = '';
+
+                if (this.photos.length === 0) {
+                    gallery.innerHTML = `
+                        <div style="grid-column: 1/-1; text-align: center; color: white; padding: 40px;">
+                            <h3>📭 No se encontraron fotos</h3>
+                            <p>El bucket está vacío o no contiene imágenes.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                this.photos.forEach((photo, index) => {
+                    const photoCard = document.createElement('div');
+                    photoCard.className = 'photo-card';
+                    photoCard.dataset.photoKey = photo.key;
+                    
+                    const checkboxHtml = this.selectionMode ? 
+                        `<input type="checkbox" class="photo-checkbox" onchange="album.togglePhotoSelection('${photo.key}', this)">` : '';
+                    
+                    const actionsHtml = this.selectionMode ? '' : `
+                        <div class="photo-actions">
+                            <a href="${photo.url}" target="_blank" class="action-btn">👁️ Ver</a>
+                            <button class="action-btn download" onclick="album.downloadImage('${photo.url}', '${photo.displayName}', this)">⬇️ Descargar</button>
+                            <button class="action-btn delete" onclick="album.confirmDeleteSingle('${photo.key}')">🗑️ Eliminar</button>
+                        </div>
+                    `;
+                    
+                    photoCard.innerHTML = `
+                        ${checkboxHtml}
+                        <img src="${photo.url}" 
+                             alt="${photo.displayName}"
+                             onclick="album.handleImageClick('${photo.url}', '${photo.key}')"
+                             onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDMwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjZjhmOWZhIi8+Cjx0ZXh0IHg9IjE1MCIgeT0iMTAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNjc2YzcyIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiPkVycm9yIGFsIGNhcmdhciBpbWFnZW48L3RleHQ+Cjwvc3ZnPg=='"
+                             loading="lazy">
+                        <div class="photo-info">
+                            <div class="photo-name">${photo.displayName}</div>
+                            <div class="photo-date">${this.formatDate(photo.lastModified)}</div>
+                            <div class="photo-size">${this.formatFileSize(photo.size)}</div>
+                            ${actionsHtml}
+                        </div>
+                    `;
+
+                    gallery.appendChild(photoCard);
+
+                    setTimeout(() => {
+                        photoCard.classList.add('loaded');
+                    }, index * 100);
+                });
+
+                this.updateSelectionInfo();
+            }
+
+            updateStats() {
+                const totalPhotos = this.photos.length;
+                const totalSize = this.photos.reduce((sum, photo) => sum + photo.size, 0);
+                const lastUpdate = this.photos.length > 0 ? 
+                    this.formatDate(this.photos[0].lastModified) : '-';
+
+                document.getElementById('totalPhotos').textContent = totalPhotos;
+                document.getElementById('totalSize').textContent = this.formatFileSize(totalSize);
+                document.getElementById('lastUpdate').textContent = lastUpdate;
+                document.getElementById('stats').style.display = 'block';
+            }
+
+            showControls() {
+                document.getElementById('configPanel').classList.add('hidden');
+                document.getElementById('controls').style.display = 'block';
+            }
+
+            showConfig() {
+                document.getElementById('configPanel').classList.remove('hidden');
+                document.getElementById('controls').style.display = 'none';
+            }
+
+            showStatus(message, type) {
+                const status = document.getElementById('status');
+                status.innerHTML = message;
+                status.className = `status ${type}`;
+                status.style.display = 'block';
+            }
+
+            hideStatus() {
+                document.getElementById('status').style.display = 'none';
+            }
+
+            openModal(imageUrl) {
+                const modal = document.getElementById('imageModal');
+                const modalImg = document.getElementById('modalImage');
+                modal.style.display = 'block';
+                modalImg.src = imageUrl;
+            }
+
+            closeModal() {
+                document.getElementById('imageModal').style.display = 'none';
+            }
+
+            toggleView() {
+                const gallery = document.getElementById('gallery');
+                this.currentView = this.currentView === 'grid' ? 'list' : 'grid';
+                
+                if (this.currentView === 'list') {
+                    gallery.style.gridTemplateColumns = '1fr';
+                } else {
+                    gallery.style.gridTemplateColumns = 'repeat(auto-fill, minmax(300px, 1fr))';
+                }
+            }
+
+            // Nuevas funciones para selección múltiple
+            toggleSelectionMode() {
+                this.selectionMode = !this.selectionMode;
+                this.selectedPhotos.clear();
+                
+                const selectionControls = document.getElementById('selectionControls');
+                
+                if (this.selectionMode) {
+                    selectionControls.classList.add('visible');
+                } else {
+                    selectionControls.classList.remove('visible');
+                }
+                
+                this.renderGallery();
+            }
+
+            togglePhotoSelection(photoKey, checkbox) {
+                const photoCard = document.querySelector(`[data-photo-key="${photoKey}"]`);
+                
+                if (checkbox.checked) {
+                    this.selectedPhotos.add(photoKey);
+                    photoCard.classList.add('selected');
+                } else {
+                    this.selectedPhotos.delete(photoKey);
+                    photoCard.classList.remove('selected');
+                }
+                
+                this.updateSelectionInfo();
+            }
+
+            selectAll() {
+                this.selectedPhotos.clear();
+                this.photos.forEach(photo => {
+                    this.selectedPhotos.add(photo.key);
+                });
+                
+                // Actualizar checkboxes
+                document.querySelectorAll('.photo-checkbox').forEach(checkbox => {
+                    checkbox.checked = true;
+                });
+                
+                // Actualizar estilos
+                document.querySelectorAll('.photo-card').forEach(card => {
+                    card.classList.add('selected');
+                });
+                
+                this.updateSelectionInfo();
+            }
+
+            selectNone() {
+                this.selectedPhotos.clear();
+                
+                // Actualizar checkboxes
+                document.querySelectorAll('.photo-checkbox').forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                
+                // Actualizar estilos
+                document.querySelectorAll('.photo-card').forEach(card => {
+                    card.classList.remove('selected');
+                });
+                
+                this.updateSelectionInfo();
+            }
+
+            updateSelectionInfo() {
+                const count = this.selectedPhotos.size;
+                const infoElement = document.getElementById('selectionInfo');
+                if (infoElement) {
+                    infoElement.textContent = `${count} foto${count !== 1 ? 's' : ''} seleccionada${count !== 1 ? 's' : ''}`;
+                }
+            }
+
+            handleImageClick(url, key) {
+                if (this.selectionMode) {
+                    const checkbox = document.querySelector(`[data-photo-key="${key}"] .photo-checkbox`);
+                    checkbox.checked = !checkbox.checked;
+                    this.togglePhotoSelection(key, checkbox);
+                } else {
+                    this.openModal(url);
+                }
+            }
+
+            async downloadSelected() {
+                if (this.selectedPhotos.size === 0) {
+                    this.showStatus('⚠️ No hay fotos seleccionadas para descargar', 'error');
+                    return;
+                }
+
+                this.showStatus(`⏳ Descargando ${this.selectedPhotos.size} fotos...`, 'loading');
+
+                let successCount = 0;
+                let failCount = 0;
+
+                for (const photoKey of this.selectedPhotos) {
+                    const photo = this.photos.find(p => p.key === photoKey);
+                    if (photo) {
+                        try {
+                            // Crear un botón temporal para la descarga
+                            const tempButton = document.createElement('button');
+                            await this.downloadImage(photo.url, photo.displayName, tempButton);
+                            successCount++;
+                            // Pequeña pausa entre descargas
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                        } catch (error) {
+                            console.error(`Error descargando ${photo.displayName}:`, error);
+                            failCount++;
+                        }
+                    }
+                }
+
+                const message = `✅ Descarga completada: ${successCount} exitosas${failCount > 0 ? `, ${failCount} fallidas` : ''}`;
+                this.showStatus(message, successCount > 0 ? 'success' : 'error');
+                setTimeout(() => this.hideStatus(), 5000);
+            }
+
+            confirmDeleteSingle(photoKey) {
+                this.selectedPhotos.clear();
+                this.selectedPhotos.add(photoKey);
+                
+                const photo = this.photos.find(p => p.key === photoKey);
+                const message = `¿Estás seguro de que quieres eliminar "${photo.displayName}"? Esta acción no se puede deshacer.`;
+                
+                document.getElementById('confirmMessage').textContent = message;
+                document.getElementById('confirmModal').style.display = 'block';
+            }
+
+            confirmDeleteSelected() {
+                if (this.selectedPhotos.size === 0) {
+                    this.showStatus('⚠️ No hay fotos seleccionadas para eliminar', 'error');
+                    return;
+                }
+
+                const count = this.selectedPhotos.size;
+                const message = `¿Estás seguro de que quieres eliminar ${count} foto${count !== 1 ? 's' : ''}? Esta acción no se puede deshacer.`;
+                
+                document.getElementById('confirmMessage').textContent = message;
+                document.getElementById('confirmModal').style.display = 'block';
+            }
+
+            async executeDelete() {
+                this.closeConfirmModal();
+                
+                if (this.selectedPhotos.size === 0) return;
+
+                this.showStatus(`⏳ Eliminando ${this.selectedPhotos.size} fotos...`, 'loading');
+
+                let successCount = 0;
+                let failCount = 0;
+
+                for (const photoKey of this.selectedPhotos) {
+                    try {
+                        const params = {
+                            Bucket: this.bucketName,
+                            Key: photoKey
+                        };
+
+                        await this.s3.deleteObject(params).promise();
+                        successCount++;
+                        
+                        // Remover de la lista local
+                        this.photos = this.photos.filter(p => p.key !== photoKey);
+                        
+                    } catch (error) {
+                        console.error(`Error eliminando ${photoKey}:`, error);
+                        failCount++;
+                    }
+                }
+
+                // Limpiar selección y actualizar vista
+                this.selectedPhotos.clear();
+                this.renderGallery();
+                this.updateStats();
+
+                const message = `✅ Eliminación completada: ${successCount} exitosas${failCount > 0 ? `, ${failCount} fallidas` : ''}`;
+                this.showStatus(message, successCount > 0 ? 'success' : 'error');
+                setTimeout(() => this.hideStatus(), 5000);
+            }
+
+            closeConfirmModal() {
+                document.getElementById('confirmModal').style.display = 'none';
+            }
+        }
+
+        // Funciones globales
+        let album;
+
+        function loadGallery() {
+            album.loadGallery();
+        }
+
+        function showConfig() {
+            album.showConfig();
+        }
+
+        function toggleView() {
+            album.toggleView();
+        }
+
+        function toggleSelectionMode() {
+            album.toggleSelectionMode();
+        }
+
+        function selectAll() {
+            album.selectAll();
+        }
+
+        function selectNone() {
+            album.selectNone();
+        }
+
+        function downloadSelected() {
+            album.downloadSelected();
+        }
+
+        function confirmDeleteSelected() {
+            album.confirmDeleteSelected();
+        }
+
+        function executeDelete() {
+            album.executeDelete();
+        }
+
+        function closeConfirmModal() {
+            album.closeConfirmModal();
+        }
+
+        function openModal(url) {
+            album.openModal(url);
+        }
+
+        function closeModal() {
+            album.closeModal();
+        }
+
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', () => {
+            album = new PhotoAlbum();
+        });
+    </script>
+</body>
+</html>

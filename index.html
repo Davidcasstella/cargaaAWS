@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subidor de Fotos a S3</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+
+        .camera-section {
+            margin-bottom: 30px;
+        }
+
+        #video {
+            width: 100%;
+            max-width: 400px;
+            height: 300px;
+            border-radius: 15px;
+            object-fit: cover;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            display: none;
+        }
+
+        #canvas {
+            display: none;
+        }
+
+        #preview {
+            width: 100%;
+            max-width: 400px;
+            height: 300px;
+            border-radius: 15px;
+            object-fit: cover;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-label {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 50px;
+            cursor: pointer;
+            display: inline-block;
+            margin: 10px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .file-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .config-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .config-section h3 {
+            color: #333;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #555;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: 600;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.loading {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .progress {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📸 Subidor de Fotos</h1>
+        
+        <!-- Configuración de S3 -->
+        <div class="config-section">
+            <h3>⚙️ Configuración de S3</h3>
+            <div class="form-group">
+                <label for="accessKey">Access Key ID:</label>
+                <input type="text" id="accessKey" placeholder="Tu Access Key de AWS">
+            </div>
+            <div class="form-group">
+                <label for="secretKey">Secret Access Key:</label>
+                <input type="password" id="secretKey" placeholder="Tu Secret Key de AWS">
+            </div>
+            <div class="form-group">
+                <label for="bucketName">Nombre del Bucket:</label>
+                <input type="text" id="bucketName" placeholder="mi-bucket-fotos">
+            </div>
+            <div class="form-group">
+                <label for="region">Región:</label>
+                <input type="text" id="region" placeholder="us-east-1" value="us-east-1">
+            </div>
+        </div>
+
+        <!-- Sección de cámara -->
+        <div class="camera-section">
+            <video id="video" autoplay playsinline></video>
+            <canvas id="canvas"></canvas>
+            <img id="preview" alt="Vista previa de la foto">
+        </div>
+
+        <!-- Botones de control -->
+        <div class="controls">
+            <button id="startCamera" class="btn">🎥 Iniciar Cámara</button>
+            <button id="takePhoto" class="btn" style="display: none;">📷 Tomar Foto</button>
+            <button id="retakePhoto" class="btn" style="display: none;">🔄 Tomar Otra</button>
+            
+            <label for="fileInput" class="file-label">📁 Subir Archivo</label>
+            <input type="file" id="fileInput" class="file-input" accept="image/*">
+            
+            <button id="uploadPhoto" class="btn" style="display: none;">☁️ Subir a S3</button>
+        </div>
+
+        <!-- Barra de progreso -->
+        <div class="progress" id="progressContainer">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+
+        <!-- Estado -->
+        <div id="status" class="status"></div>
+    </div>
+
+    <!-- AWS SDK -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/aws-sdk/2.1479.0/aws-sdk.min.js"></script>
+
+    <script>
+        class PhotoUploader {
+            constructor() {
+                this.video = document.getElementById('video');
+                this.canvas = document.getElementById('canvas');
+                this.preview = document.getElementById('preview');
+                this.status = document.getElementById('status');
+                this.progressContainer = document.getElementById('progressContainer');
+                this.progressBar = document.getElementById('progressBar');
+                
+                this.currentPhotoBlob = null;
+                this.stream = null;
+                
+                this.initializeEventListeners();
+            }
+
+            initializeEventListeners() {
+                document.getElementById('startCamera').addEventListener('click', () => this.startCamera());
+                document.getElementById('takePhoto').addEventListener('click', () => this.takePhoto());
+                document.getElementById('retakePhoto').addEventListener('click', () => this.retakePhoto());
+                document.getElementById('uploadPhoto').addEventListener('click', () => this.uploadPhoto());
+                document.getElementById('fileInput').addEventListener('change', (e) => this.handleFileSelect(e));
+            }
+
+            async startCamera() {
+                try {
+                    this.stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { 
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 },
+                            facingMode: 'user'
+                        } 
+                    });
+                    
+                    this.video.srcObject = this.stream;
+                    this.video.style.display = 'block';
+                    this.preview.style.display = 'none';
+                    
+                    document.getElementById('startCamera').style.display = 'none';
+                    document.getElementById('takePhoto').style.display = 'inline-block';
+                    
+                    this.showStatus('Cámara iniciada correctamente', 'success');
+                } catch (error) {
+                    console.error('Error al acceder a la cámara:', error);
+                    this.showStatus('Error al acceder a la cámara: ' + error.message, 'error');
+                }
+            }
+
+            takePhoto() {
+                const context = this.canvas.getContext('2d');
+                this.canvas.width = this.video.videoWidth;
+                this.canvas.height = this.video.videoHeight;
+                
+                context.drawImage(this.video, 0, 0);
+                
+                this.canvas.toBlob((blob) => {
+                    this.currentPhotoBlob = blob;
+                    const url = URL.createObjectURL(blob);
+                    
+                    this.preview.src = url;
+                    this.preview.style.display = 'block';
+                    this.video.style.display = 'none';
+                    
+                    document.getElementById('takePhoto').style.display = 'none';
+                    document.getElementById('retakePhoto').style.display = 'inline-block';
+                    document.getElementById('uploadPhoto').style.display = 'inline-block';
+                    
+                    this.showStatus('Foto capturada correctamente', 'success');
+                }, 'image/jpeg', 0.9);
+            }
+
+            retakePhoto() {
+                this.video.style.display = 'block';
+                this.preview.style.display = 'none';
+                
+                document.getElementById('takePhoto').style.display = 'inline-block';
+                document.getElementById('retakePhoto').style.display = 'none';
+                document.getElementById('uploadPhoto').style.display = 'none';
+                
+                this.currentPhotoBlob = null;
+                this.hideStatus();
+            }
+
+            handleFileSelect(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    this.currentPhotoBlob = file;
+                    const url = URL.createObjectURL(file);
+                    
+                    this.preview.src = url;
+                    this.preview.style.display = 'block';
+                    this.video.style.display = 'none';
+                    
+                    if (this.stream) {
+                        this.stream.getTracks().forEach(track => track.stop());
+                    }
+                    
+                    document.getElementById('startCamera').style.display = 'inline-block';
+                    document.getElementById('takePhoto').style.display = 'none';
+                    document.getElementById('retakePhoto').style.display = 'none';
+                    document.getElementById('uploadPhoto').style.display = 'inline-block';
+                    
+                    this.showStatus('Archivo seleccionado correctamente', 'success');
+                }
+            }
+
+            async uploadPhoto() {
+                if (!this.currentPhotoBlob) {
+                    this.showStatus('No hay foto para subir', 'error');
+                    return;
+                }
+
+                if (!this.validateConfig()) {
+                    return;
+                }
+
+                const accessKey = document.getElementById('accessKey').value;
+                const secretKey = document.getElementById('secretKey').value;
+                const bucketName = document.getElementById('bucketName').value;
+                const region = document.getElementById('region').value;
+
+                // Configurar AWS
+                AWS.config.update({
+                    accessKeyId: accessKey,
+                    secretAccessKey: secretKey,
+                    region: region
+                });
+
+                const s3 = new AWS.S3();
+                const fileName = `foto_${Date.now()}.jpg`;
+
+                const uploadParams = {
+                    Bucket: bucketName,
+                    Key: fileName,
+                    Body: this.currentPhotoBlob,
+                    ContentType: 'image/jpeg'
+                };
+
+                try {
+                    this.showStatus('Subiendo foto...', 'loading');
+                    this.showProgress();
+
+                    const upload = s3.upload(uploadParams);
+                    
+                    upload.on('httpUploadProgress', (progress) => {
+                        const percentage = Math.round((progress.loaded / progress.total) * 100);
+                        this.updateProgress(percentage);
+                    });
+
+                    const result = await upload.promise();
+                    
+                    this.hideProgress();
+                    this.showStatus(`¡Foto subida exitosamente! URL: ${result.Location}`, 'success');
+                    
+                    console.log('Foto subida:', result);
+                } catch (error) {
+                    console.error('Error al subir la foto:', error);
+                    this.hideProgress();
+                    this.showStatus('Error al subir la foto: ' + error.message, 'error');
+                }
+            }
+
+            validateConfig() {
+                const accessKey = document.getElementById('accessKey').value;
+                const secretKey = document.getElementById('secretKey').value;
+                const bucketName = document.getElementById('bucketName').value;
+                const region = document.getElementById('region').value;
+
+                if (!accessKey || !secretKey || !bucketName || !region) {
+                    this.showStatus('Por favor completa toda la configuración de S3', 'error');
+                    return false;
+                }
+
+                return true;
+            }
+
+            showStatus(message, type) {
+                this.status.textContent = message;
+                this.status.className = `status ${type}`;
+                this.status.style.display = 'block';
+            }
+
+            hideStatus() {
+                this.status.style.display = 'none';
+            }
+
+            showProgress() {
+                this.progressContainer.style.display = 'block';
+                this.progressBar.style.width = '0%';
+            }
+
+            hideProgress() {
+                this.progressContainer.style.display = 'none';
+            }
+
+            updateProgress(percentage) {
+                this.progressBar.style.width = percentage + '%';
+            }
+        }
+
+        // Inicializar la aplicación
+        document.addEventListener('DOMContentLoaded', () => {
+            new PhotoUploader();
+        });
+    </script>
+</body>
+</html>
