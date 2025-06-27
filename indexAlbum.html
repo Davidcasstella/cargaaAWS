@@ -471,6 +471,42 @@
                 font-size: 2em;
             }
         }
+        .photo-card video {
+    width: 100%;
+    height: 250px;
+    object-fit: cover;
+    transition: transform 0.4s ease;
+    cursor: pointer;
+}
+
+.photo-card:hover video {
+    transform: scale(1.05);
+}
+
+video::-webkit-media-controls-panel {
+    display: none !important;
+}
+
+video::-webkit-media-controls-play-button {
+    display: none !important;
+}
+
+video::-webkit-media-controls-start-playback-button {
+    display: none !important;
+}
+
+.photo-card video::before {
+    content: '▶️';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 2em;
+    color: white;
+    text-shadow: 0 0 10px rgba(0,0,0,0.8);
+    pointer-events: none;
+    z-index: 1;
+}   
     </style>
 </head>
 <body>
@@ -644,7 +680,7 @@
                     const data = await this.s3.listObjectsV2(params).promise();
                     
                     this.photos = data.Contents
-                        .filter(item => this.isImageFile(item.Key))
+                        .filter(item => this.isMediaFile(item.Key))
                         .map(item => ({
                             key: item.Key,
                             lastModified: item.LastModified,
@@ -666,12 +702,24 @@
                 }
             }
 
-            isImageFile(filename) {
-                const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
-                return imageExtensions.some(ext => 
-                    filename.toLowerCase().endsWith(ext)
-                );
-            }
+  isMediaFile(filename) {
+    const mediaExtensions = [
+        // Imágenes
+        '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg',
+        // Videos
+        '.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v', '.3gp', '.flv'
+    ];
+    return mediaExtensions.some(ext => 
+        filename.toLowerCase().endsWith(ext)
+    );
+}
+// 2. AGREGAR FUNCIÓN PARA DETECTAR SI ES VIDEO
+isVideoFile(filename) {
+    const videoExtensions = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v', '.3gp', '.flv'];
+    return videoExtensions.some(ext => 
+        filename.toLowerCase().endsWith(ext)
+    );
+}
 
             getImageUrl(key) {
                 return `https://${this.bucketName}.s3.${AWS.config.region}.amazonaws.com/${encodeURIComponent(key)}`;
@@ -790,60 +838,77 @@
                 return match ? match[0] : '.jpg';
             }
 
-            renderGallery() {
-                const gallery = document.getElementById('gallery');
-                gallery.innerHTML = '';
+           renderGallery() {
+    const gallery = document.getElementById('gallery');
+    gallery.innerHTML = '';
 
-                if (this.photos.length === 0) {
-                    gallery.innerHTML = `
-                        <div style="grid-column: 1/-1; text-align: center; color: white; padding: 40px;">
-                            <h3>📭 No se encontraron fotos</h3>
-                            <p>El bucket está vacío o no contiene imágenes.</p>
-                        </div>
-                    `;
-                    return;
-                }
+    if (this.photos.length === 0) {
+        gallery.innerHTML = `
+            <div style="grid-column: 1/-1; text-align: center; color: white; padding: 40px;">
+                <h3>📭 No se encontraron archivos</h3>
+                <p>El bucket está vacío o no contiene imágenes ni videos.</p>
+            </div>
+        `;
+        return;
+    }
 
-                this.photos.forEach((photo, index) => {
-                    const photoCard = document.createElement('div');
-                    photoCard.className = 'photo-card';
-                    photoCard.dataset.photoKey = photo.key;
-                    
-                    const checkboxHtml = this.selectionMode ? 
-                        `<input type="checkbox" class="photo-checkbox" onchange="album.togglePhotoSelection('${photo.key}', this)">` : '';
-                    
-                    const actionsHtml = this.selectionMode ? '' : `
-                        <div class="photo-actions">
-                            <a href="${photo.url}" target="_blank" class="action-btn">👁️ Ver</a>
-                            <button class="action-btn download" onclick="album.downloadImage('${photo.url}', '${photo.displayName}', this)">⬇️ Descargar</button>
-                            <button class="action-btn delete" onclick="album.confirmDeleteSingle('${photo.key}')">🗑️ Eliminar</button>
-                        </div>
-                    `;
-                    
-                    photoCard.innerHTML = `
-                        ${checkboxHtml}
-                        <img src="${photo.url}" 
-                             alt="${photo.displayName}"
-                             onclick="album.handleImageClick('${photo.url}', '${photo.key}')"
-                             onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDMwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjZjhmOWZhIi8+Cjx0ZXh0IHg9IjE1MCIgeT0iMTAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNjc2YzcyIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiPkVycm9yIGFsIGNhcmdhciBpbWFnZW48L3RleHQ+Cjwvc3ZnPg=='"
-                             loading="lazy">
-                        <div class="photo-info">
-                            <div class="photo-name">${photo.displayName}</div>
-                            <div class="photo-date">${this.formatDate(photo.lastModified)}</div>
-                            <div class="photo-size">${this.formatFileSize(photo.size)}</div>
-                            ${actionsHtml}
-                        </div>
-                    `;
+    this.photos.forEach((photo, index) => {
+        const photoCard = document.createElement('div');
+        photoCard.className = 'photo-card';
+        photoCard.dataset.photoKey = photo.key;
+        
+        const checkboxHtml = this.selectionMode ? 
+            `<input type="checkbox" class="photo-checkbox" onchange="album.togglePhotoSelection('${photo.key}', this)">` : '';
+        
+        const actionsHtml = this.selectionMode ? '' : `
+            <div class="photo-actions">
+                <a href="${photo.url}" target="_blank" class="action-btn">👁️ Ver</a>
+                <button class="action-btn download" onclick="album.downloadImage('${photo.url}', '${photo.displayName}', this)">⬇️ Descargar</button>
+                <button class="action-btn delete" onclick="album.confirmDeleteSingle('${photo.key}')">🗑️ Eliminar</button>
+            </div>
+        `;
 
-                    gallery.appendChild(photoCard);
+        // Determinar si es video o imagen
+        const mediaHtml = this.isVideoFile(photo.key) ? 
+            `<div style="position: relative;">
+                <video src="${photo.url}" 
+                       onclick="album.handleMediaClick('${photo.url}', '${photo.key}')"
+                       onloadeddata="this.style.opacity='1'"
+                       style="opacity:0; transition: opacity 0.3s; width: 100%; height: 250px; object-fit: cover; cursor: pointer;"
+                       muted
+                       preload="metadata">
+                   <source src="${photo.url}" type="video/${this.getFileExtension(photo.url).substring(1)}">
+                   Tu navegador no soporta videos.
+                 </video>
+                 <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 2em; color: white; text-shadow: 0 0 10px rgba(0,0,0,0.8); pointer-events: none;">▶️</div>
+             </div>` :
+            `<img src="${photo.url}" 
+                 alt="${photo.displayName}"
+                 onclick="album.handleMediaClick('${photo.url}', '${photo.key}')"
+                 onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDMwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjZjhmOWZhIi8+Cjx0ZXh0IHg9IjE1MCIgeT0iMTAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNjc2YzcyIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiPkVycm9yIGFsIGNhcmdhciBtZWRpYTwvdGV4dD4KPHN2Zz4='"
+                 loading="lazy"
+                 style="width: 100%; height: 250px; object-fit: cover; transition: transform 0.4s ease; cursor: pointer;">`;
+        
+        photoCard.innerHTML = `
+            ${checkboxHtml}
+            ${mediaHtml}
+            <div class="photo-info">
+                <div class="photo-name">${photo.displayName}</div>
+                <div class="photo-date">${this.formatDate(photo.lastModified)}</div>
+                <div class="photo-size">${this.formatFileSize(photo.size)}</div>
+                ${actionsHtml}
+            </div>
+        `;
 
-                    setTimeout(() => {
-                        photoCard.classList.add('loaded');
-                    }, index * 100);
-                });
+        gallery.appendChild(photoCard);
 
-                this.updateSelectionInfo();
-            }
+        setTimeout(() => {
+            photoCard.classList.add('loaded');
+        }, index * 100);
+    });
+
+    this.updateSelectionInfo();
+}
 
             updateStats() {
                 const totalPhotos = this.photos.length;
@@ -878,12 +943,36 @@
                 document.getElementById('status').style.display = 'none';
             }
 
-            openModal(imageUrl) {
-                const modal = document.getElementById('imageModal');
-                const modalImg = document.getElementById('modalImage');
-                modal.style.display = 'block';
-                modalImg.src = imageUrl;
-            }
+openModal(mediaUrl, isVideo = false) {
+    const modal = document.getElementById('imageModal');
+    const modalContent = document.getElementById('modalImage');
+    
+    if (isVideo) {
+        // Crear elemento video
+        const videoElement = document.createElement('video');
+        videoElement.src = mediaUrl;
+        videoElement.controls = true;
+        videoElement.autoplay = true;
+        videoElement.className = 'modal-content';
+        videoElement.style.maxWidth = '90%';
+        videoElement.style.maxHeight = '90%';
+        
+        // Reemplazar imagen con video
+        modalContent.replaceWith(videoElement);
+        videoElement.id = 'modalImage';
+    } else {
+        // Si el elemento actual es video, crear nuevo img
+        if (modalContent.tagName === 'VIDEO') {
+            const imgElement = document.createElement('img');
+            imgElement.className = 'modal-content';
+            imgElement.id = 'modalImage';
+            modalContent.replaceWith(imgElement);
+        }
+        document.getElementById('modalImage').src = mediaUrl;
+    }
+    
+    modal.style.display = 'block';
+}
 
             closeModal() {
                 document.getElementById('imageModal').style.display = 'none';

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Subidor de Fotos a S3</title>
+    <title>Subidor de Fotos y Videos a S3</title>
     <style>
         * {
             margin: 0;
@@ -27,7 +27,7 @@
             border-radius: 20px;
             padding: 40px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-            max-width: 500px;
+            max-width: 600px;
             width: 100%;
             text-align: center;
         }
@@ -39,14 +39,43 @@
             font-weight: 300;
         }
 
+        .mode-selector {
+            margin-bottom: 30px;
+        }
+
+        .mode-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .mode-btn.active {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .mode-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
         .camera-section {
             margin-bottom: 30px;
         }
 
         #video {
             width: 100%;
-            max-width: 400px;
-            height: 300px;
+            max-width: 480px;
+            height: 360px;
             border-radius: 15px;
             object-fit: cover;
             box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
@@ -59,11 +88,47 @@
 
         #preview {
             width: 100%;
-            max-width: 400px;
-            height: 300px;
+            max-width: 480px;
+            height: 360px;
             border-radius: 15px;
             object-fit: cover;
             box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            display: none;
+        }
+
+        #videoPreview {
+            width: 100%;
+            max-width: 480px;
+            height: 360px;
+            border-radius: 15px;
+            object-fit: cover;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            display: none;
+        }
+
+        .recording-indicator {
+            display: none;
+            background: #ff4757;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            margin: 10px auto;
+            font-weight: bold;
+            width: fit-content;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .timer {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+            margin: 10px 0;
             display: none;
         }
 
@@ -94,6 +159,14 @@
             background: #ccc;
             cursor: not-allowed;
             transform: none;
+        }
+
+        .btn.record {
+            background: linear-gradient(45deg, #ff4757, #ff3742);
+        }
+
+        .btn.stop {
+            background: linear-gradient(45deg, #2f3542, #57606f);
         }
 
         .file-input {
@@ -199,12 +272,24 @@
             width: 0%;
             transition: width 0.3s ease;
         }
+
+        .file-size {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>📸 Subidor de Fotos</h1>
+        <h1>📸🎥 Subidor Multimedia</h1>
         
+        <!-- Selector de modo -->
+        <div class="mode-selector">
+            <button id="photoMode" class="mode-btn active">📷 Modo Foto</button>
+            <button id="videoMode" class="mode-btn">🎥 Modo Video</button>
+        </div>
+
         <!-- Configuración de S3 -->
         <div class="config-section">
             <h3>⚙️ Configuración de S3</h3>
@@ -218,7 +303,7 @@
             </div>
             <div class="form-group">
                 <label for="bucketName">Nombre del Bucket:</label>
-                <input type="text" id="bucketName" placeholder="mi-bucket-fotos">
+                <input type="text" id="bucketName" placeholder="mi-bucket-multimedia">
             </div>
             <div class="form-group">
                 <label for="region">Región:</label>
@@ -228,21 +313,39 @@
 
         <!-- Sección de cámara -->
         <div class="camera-section">
-            <video id="video" autoplay playsinline></video>
+            <video id="video" autoplay playsinline muted></video>
             <canvas id="canvas"></canvas>
             <img id="preview" alt="Vista previa de la foto">
+            <video id="videoPreview" controls></video>
+            
+            <div id="recordingIndicator" class="recording-indicator">
+                🔴 GRABANDO
+            </div>
+            <div id="timer" class="timer">00:00</div>
+            <div id="fileSize" class="file-size"></div>
         </div>
 
         <!-- Botones de control -->
         <div class="controls">
             <button id="startCamera" class="btn">🎥 Iniciar Cámara</button>
-            <button id="takePhoto" class="btn" style="display: none;">📷 Tomar Foto</button>
-            <button id="retakePhoto" class="btn" style="display: none;">🔄 Tomar Otra</button>
+            
+            <!-- Controles para fotos -->
+            <div id="photoControls">
+                <button id="takePhoto" class="btn" style="display: none;">📷 Tomar Foto</button>
+                <button id="retakePhoto" class="btn" style="display: none;">🔄 Tomar Otra</button>
+            </div>
+            
+            <!-- Controles para videos -->
+            <div id="videoControls" style="display: none;">
+                <button id="startRecording" class="btn record" style="display: none;">🎬 Iniciar Grabación</button>
+                <button id="stopRecording" class="btn stop" style="display: none;">⏹️ Detener Grabación</button>
+                <button id="discardVideo" class="btn" style="display: none;">🗑️ Descartar Video</button>
+            </div>
             
             <label for="fileInput" class="file-label">📁 Subir Archivo</label>
-            <input type="file" id="fileInput" class="file-input" accept="image/*">
+            <input type="file" id="fileInput" class="file-input" accept="image/*,video/*">
             
-            <button id="uploadPhoto" class="btn" style="display: none;">☁️ Subir a S3</button>
+            <button id="uploadFile" class="btn" style="display: none;">☁️ Subir a S3</button>
         </div>
 
         <!-- Barra de progreso -->
@@ -258,51 +361,179 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/aws-sdk/2.1479.0/aws-sdk.min.js"></script>
 
     <script>
-        class PhotoUploader {
+        class MultimediaUploader {
             constructor() {
                 this.video = document.getElementById('video');
                 this.canvas = document.getElementById('canvas');
                 this.preview = document.getElementById('preview');
+                this.videoPreview = document.getElementById('videoPreview');
                 this.status = document.getElementById('status');
                 this.progressContainer = document.getElementById('progressContainer');
                 this.progressBar = document.getElementById('progressBar');
+                this.recordingIndicator = document.getElementById('recordingIndicator');
+                this.timer = document.getElementById('timer');
+                this.fileSize = document.getElementById('fileSize');
                 
-                this.currentPhotoBlob = null;
+                this.currentFileBlob = null;
                 this.stream = null;
+                this.mediaRecorder = null;
+                this.recordedChunks = [];
+                this.isPhotoMode = true;
+                this.recordingStartTime = null;
+                this.timerInterval = null;
                 
                 this.initializeEventListeners();
             }
 
             initializeEventListeners() {
+                // Mode selectors
+                document.getElementById('photoMode').addEventListener('click', () => this.setPhotoMode());
+                document.getElementById('videoMode').addEventListener('click', () => this.setVideoMode());
+                
+                // Camera controls
                 document.getElementById('startCamera').addEventListener('click', () => this.startCamera());
+                
+                // Photo controls
                 document.getElementById('takePhoto').addEventListener('click', () => this.takePhoto());
                 document.getElementById('retakePhoto').addEventListener('click', () => this.retakePhoto());
-                document.getElementById('uploadPhoto').addEventListener('click', () => this.uploadPhoto());
+                
+                // Video controls
+                document.getElementById('startRecording').addEventListener('click', () => this.startRecording());
+                document.getElementById('stopRecording').addEventListener('click', () => this.stopRecording());
+                document.getElementById('discardVideo').addEventListener('click', () => this.discardVideo());
+                
+                // File and upload
                 document.getElementById('fileInput').addEventListener('change', (e) => this.handleFileSelect(e));
+                document.getElementById('uploadFile').addEventListener('click', () => this.uploadFile());
+            }
+
+            setPhotoMode() {
+                this.isPhotoMode = true;
+                document.getElementById('photoMode').classList.add('active');
+                document.getElementById('videoMode').classList.remove('active');
+                document.getElementById('photoControls').style.display = 'block';
+                document.getElementById('videoControls').style.display = 'none';
+                document.getElementById('fileInput').accept = 'image/*';
+                this.resetInterface();
+            }
+
+            setVideoMode() {
+                this.isPhotoMode = false;
+                document.getElementById('videoMode').classList.add('active');
+                document.getElementById('photoMode').classList.remove('active');
+                document.getElementById('photoControls').style.display = 'none';
+                document.getElementById('videoControls').style.display = 'block';
+                document.getElementById('fileInput').accept = 'video/*';
+                this.resetInterface();
+            }
+
+            resetInterface() {
+                this.video.style.display = 'none';
+                this.preview.style.display = 'none';
+                this.videoPreview.style.display = 'none';
+                this.recordingIndicator.style.display = 'none';
+                this.timer.style.display = 'none';
+                this.fileSize.textContent = '';
+                
+                document.getElementById('startCamera').style.display = 'inline-block';
+                document.getElementById('takePhoto').style.display = 'none';
+                document.getElementById('retakePhoto').style.display = 'none';
+                document.getElementById('startRecording').style.display = 'none';
+                document.getElementById('stopRecording').style.display = 'none';
+                document.getElementById('discardVideo').style.display = 'none';
+                document.getElementById('uploadFile').style.display = 'none';
+                
+                if (this.stream) {
+                    this.stream.getTracks().forEach(track => track.stop());
+                    this.stream = null;
+                }
+                
+                this.currentFileBlob = null;
+                this.hideStatus();
             }
 
             async startCamera() {
                 try {
-                    this.stream = await navigator.mediaDevices.getUserMedia({ 
+                    const constraints = {
                         video: { 
                             width: { ideal: 1280 },
                             height: { ideal: 720 },
                             facingMode: 'user'
-                        } 
-                    });
+                        }
+                    };
+                    
+                    if (!this.isPhotoMode) {
+                        constraints.audio = true;
+                    }
+                    
+                    this.stream = await navigator.mediaDevices.getUserMedia(constraints);
                     
                     this.video.srcObject = this.stream;
                     this.video.style.display = 'block';
                     this.preview.style.display = 'none';
+                    this.videoPreview.style.display = 'none';
                     
                     document.getElementById('startCamera').style.display = 'none';
-                    document.getElementById('takePhoto').style.display = 'inline-block';
+                    
+                    if (this.isPhotoMode) {
+                        document.getElementById('takePhoto').style.display = 'inline-block';
+                    } else {
+                        document.getElementById('startRecording').style.display = 'inline-block';
+                        this.setupMediaRecorder();
+                    }
                     
                     this.showStatus('Cámara iniciada correctamente', 'success');
                 } catch (error) {
                     console.error('Error al acceder a la cámara:', error);
                     this.showStatus('Error al acceder a la cámara: ' + error.message, 'error');
                 }
+            }
+
+            setupMediaRecorder() {
+                if (!this.stream) return;
+                
+                const options = {
+                    mimeType: 'video/webm;codecs=vp8,opus'
+                };
+                
+                try {
+                    this.mediaRecorder = new MediaRecorder(this.stream, options);
+                } catch (error) {
+                    console.log('VP8/Opus not supported, trying fallback');
+                    try {
+                        this.mediaRecorder = new MediaRecorder(this.stream);
+                    } catch (fallbackError) {
+                        console.error('MediaRecorder not supported:', fallbackError);
+                        this.showStatus('Tu navegador no soporta grabación de video', 'error');
+                        return;
+                    }
+                }
+
+                this.recordedChunks = [];
+                
+                this.mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        this.recordedChunks.push(event.data);
+                    }
+                };
+
+                this.mediaRecorder.onstop = () => {
+                    const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
+                    this.currentFileBlob = blob;
+                    const url = URL.createObjectURL(blob);
+                    
+                    this.videoPreview.src = url;
+                    this.videoPreview.style.display = 'block';
+                    this.video.style.display = 'none';
+                    
+                    this.showFileSize(blob.size);
+                    this.showStatus('Video grabado correctamente', 'success');
+                    
+                    document.getElementById('startRecording').style.display = 'none';
+                    document.getElementById('stopRecording').style.display = 'none';
+                    document.getElementById('discardVideo').style.display = 'inline-block';
+                    document.getElementById('uploadFile').style.display = 'inline-block';
+                };
             }
 
             takePhoto() {
@@ -313,16 +544,18 @@
                 context.drawImage(this.video, 0, 0);
                 
                 this.canvas.toBlob((blob) => {
-                    this.currentPhotoBlob = blob;
+                    this.currentFileBlob = blob;
                     const url = URL.createObjectURL(blob);
                     
                     this.preview.src = url;
                     this.preview.style.display = 'block';
                     this.video.style.display = 'none';
                     
+                    this.showFileSize(blob.size);
+                    
                     document.getElementById('takePhoto').style.display = 'none';
                     document.getElementById('retakePhoto').style.display = 'inline-block';
-                    document.getElementById('uploadPhoto').style.display = 'inline-block';
+                    document.getElementById('uploadFile').style.display = 'inline-block';
                     
                     this.showStatus('Foto capturada correctamente', 'success');
                 }, 'image/jpeg', 0.9);
@@ -334,21 +567,84 @@
                 
                 document.getElementById('takePhoto').style.display = 'inline-block';
                 document.getElementById('retakePhoto').style.display = 'none';
-                document.getElementById('uploadPhoto').style.display = 'none';
+                document.getElementById('uploadFile').style.display = 'none';
                 
-                this.currentPhotoBlob = null;
+                this.currentFileBlob = null;
+                this.fileSize.textContent = '';
+                this.hideStatus();
+            }
+
+            startRecording() {
+                if (!this.mediaRecorder) {
+                    this.showStatus('Error: MediaRecorder no está configurado', 'error');
+                    return;
+                }
+                
+                this.recordedChunks = [];
+                this.mediaRecorder.start();
+                
+                this.recordingStartTime = Date.now();
+                this.recordingIndicator.style.display = 'block';
+                this.timer.style.display = 'block';
+                
+                this.timerInterval = setInterval(() => {
+                    const elapsed = Math.floor((Date.now() - this.recordingStartTime) / 1000);
+                    const minutes = Math.floor(elapsed / 60);
+                    const seconds = elapsed % 60;
+                    this.timer.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                }, 1000);
+                
+                document.getElementById('startRecording').style.display = 'none';
+                document.getElementById('stopRecording').style.display = 'inline-block';
+                
+                this.showStatus('Grabación iniciada', 'loading');
+            }
+
+            stopRecording() {
+                if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+                    this.mediaRecorder.stop();
+                }
+                
+                this.recordingIndicator.style.display = 'none';
+                this.timer.style.display = 'none';
+                
+                if (this.timerInterval) {
+                    clearInterval(this.timerInterval);
+                    this.timerInterval = null;
+                }
+            }
+
+            discardVideo() {
+                this.video.style.display = 'block';
+                this.videoPreview.style.display = 'none';
+                
+                document.getElementById('startRecording').style.display = 'inline-block';
+                document.getElementById('discardVideo').style.display = 'none';
+                document.getElementById('uploadFile').style.display = 'none';
+                
+                this.currentFileBlob = null;
+                this.fileSize.textContent = '';
                 this.hideStatus();
             }
 
             handleFileSelect(event) {
                 const file = event.target.files[0];
                 if (file) {
-                    this.currentPhotoBlob = file;
+                    this.currentFileBlob = file;
                     const url = URL.createObjectURL(file);
                     
-                    this.preview.src = url;
-                    this.preview.style.display = 'block';
+                    if (file.type.startsWith('image/')) {
+                        this.preview.src = url;
+                        this.preview.style.display = 'block';
+                        this.videoPreview.style.display = 'none';
+                    } else if (file.type.startsWith('video/')) {
+                        this.videoPreview.src = url;
+                        this.videoPreview.style.display = 'block';
+                        this.preview.style.display = 'none';
+                    }
+                    
                     this.video.style.display = 'none';
+                    this.showFileSize(file.size);
                     
                     if (this.stream) {
                         this.stream.getTracks().forEach(track => track.stop());
@@ -357,15 +653,18 @@
                     document.getElementById('startCamera').style.display = 'inline-block';
                     document.getElementById('takePhoto').style.display = 'none';
                     document.getElementById('retakePhoto').style.display = 'none';
-                    document.getElementById('uploadPhoto').style.display = 'inline-block';
+                    document.getElementById('startRecording').style.display = 'none';
+                    document.getElementById('stopRecording').style.display = 'none';
+                    document.getElementById('discardVideo').style.display = 'none';
+                    document.getElementById('uploadFile').style.display = 'inline-block';
                     
                     this.showStatus('Archivo seleccionado correctamente', 'success');
                 }
             }
 
-            async uploadPhoto() {
-                if (!this.currentPhotoBlob) {
-                    this.showStatus('No hay foto para subir', 'error');
+            async uploadFile() {
+                if (!this.currentFileBlob) {
+                    this.showStatus('No hay archivo para subir', 'error');
                     return;
                 }
 
@@ -378,7 +677,6 @@
                 const bucketName = document.getElementById('bucketName').value;
                 const region = document.getElementById('region').value;
 
-                // Configurar AWS
                 AWS.config.update({
                     accessKeyId: accessKey,
                     secretAccessKey: secretKey,
@@ -386,17 +684,20 @@
                 });
 
                 const s3 = new AWS.S3();
-                const fileName = `foto_${Date.now()}.jpg`;
+                const isVideo = this.currentFileBlob.type.startsWith('video/') || !this.currentFileBlob.type.startsWith('image/');
+                const extension = isVideo ? 'webm' : 'jpg';
+                const prefix = isVideo ? 'video' : 'foto';
+                const fileName = `${prefix}_${Date.now()}.${extension}`;
 
                 const uploadParams = {
                     Bucket: bucketName,
                     Key: fileName,
-                    Body: this.currentPhotoBlob,
-                    ContentType: 'image/jpeg'
+                    Body: this.currentFileBlob,
+                    ContentType: this.currentFileBlob.type || (isVideo ? 'video/webm' : 'image/jpeg')
                 };
 
                 try {
-                    this.showStatus('Subiendo foto...', 'loading');
+                    this.showStatus('Subiendo archivo...', 'loading');
                     this.showProgress();
 
                     const upload = s3.upload(uploadParams);
@@ -409,13 +710,13 @@
                     const result = await upload.promise();
                     
                     this.hideProgress();
-                    this.showStatus(`¡Foto subida exitosamente! URL: ${result.Location}`, 'success');
+                    this.showStatus(`¡Archivo subido exitosamente! URL: ${result.Location}`, 'success');
                     
-                    console.log('Foto subida:', result);
+                    console.log('Archivo subido:', result);
                 } catch (error) {
-                    console.error('Error al subir la foto:', error);
+                    console.error('Error al subir el archivo:', error);
                     this.hideProgress();
-                    this.showStatus('Error al subir la foto: ' + error.message, 'error');
+                    this.showStatus('Error al subir el archivo: ' + error.message, 'error');
                 }
             }
 
@@ -431,6 +732,14 @@
                 }
 
                 return true;
+            }
+
+            showFileSize(bytes) {
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                if (bytes === 0) return '0 Bytes';
+                const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+                const size = Math.round(bytes / Math.pow(1024, i) * 100) / 100;
+                this.fileSize.textContent = `Tamaño: ${size} ${sizes[i]}`;
             }
 
             showStatus(message, type) {
@@ -459,7 +768,7 @@
 
         // Inicializar la aplicación
         document.addEventListener('DOMContentLoaded', () => {
-            new PhotoUploader();
+            new MultimediaUploader();
         });
     </script>
 </body>
